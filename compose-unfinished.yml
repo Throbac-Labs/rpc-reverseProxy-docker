@@ -1,0 +1,84 @@
+version: '3.4'
+services:
+  geth-goerli:
+    container_name: geth-goerli
+    image: ethereum/client-go:v1.10.19
+    ports:
+      - "8552:8552"
+      - "30303:30303"
+      - "30303:30303/udp"
+    volumes:
+      - geth-goerli:/.goerli
+    networks:
+      - chains
+    command:
+      - --goerli
+      - --http
+      - --http.api=eth,net,debug
+      - --http.addr=0.0.0.0
+      - --http.port=8552
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --syncmode=snap
+      - --datadir=.goerli
+      - --verbosity=3
+      - --metrics
+      - --metrics.addr=0.0.0.0
+    restart: unless-stopped
+
+  geth-ropsten:
+    container_name: geth-ropsten
+    image: ethereum/client-go:v1.10.19
+    ports:
+      - "127.0.0.1:8565:8565"
+      - "30305:30305"
+      - "30305:30305/udp"
+    volumes:
+      - geth-ropsten:/.ropsten
+    networks:
+      - chains
+    command:
+      - --ropsten
+      - --port=30305
+      - --http
+      - --http.api=eth,net,debug
+      - --http.addr=0.0.0.0
+      - --http.port=8565
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --syncmode=snap
+      - --datadir=.ropsten
+      - --verbosity=3
+      - --metrics
+      - --metrics.addr=0.0.0.0
+    restart: unless-stopped
+
+  beacon-test-node:
+    image: gcr.io/prysmaticlabs/prysm/beacon-chain:HEAD-6b55d3
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+      - "13000:13000"
+      - "12000:12000/udp"
+    volumes:
+      - beacon-test-node:/.beaconData
+    networks:
+      - chains
+    command:
+      - --datadir=/.beaconData
+      - --rpc-host=0.0.0.0
+      - --monitoring-host=0.0.0.0
+      - --http-web3provider=http://geth-ropsten:8565
+      - --terminal-total-difficulty-override=50000000000000000
+      - --ropsten
+      - --accept-terms-of-use
+    depends_on:
+      - geth-ropsten
+
+volumes:
+    geth-goerli:
+    geth-ropsten:
+    beacon-test-node:
+networks:
+  chains:
+    driver: bridge

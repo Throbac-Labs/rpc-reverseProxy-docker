@@ -1,0 +1,34 @@
+version: '3.4'
+services:
+  geth-goerli:
+    container_name: geth-goerli
+    image: ethereum/client-go:v1.10.19
+    ports:
+      - "8552:8552"
+      - "30303:30303"
+      - "30303:30303/udp"
+    volumes:
+      - geth-goerli:/.goerli
+    networks:
+      - chains
+    command:
+      - --goerli
+      - --http
+      - --http.api=eth,net,debug
+      - --http.addr=0.0.0.0
+      - --http.port=8552
+      - --http.vhosts=*
+      - --http.corsdomain=*
+      - --syncmode=snap
+      - --datadir=.goerli
+      - --verbosity=3
+      - --metrics
+      - --metrics.addr=0.0.0.0
+    restart: unless-stopped
+
+volumes:
+    geth-goerli:
+
+networks:
+  chains:
+    driver: bridge

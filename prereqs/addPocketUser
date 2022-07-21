@@ -1,6 +1,0 @@
-adduser pocket
-usermod -aG sudo pocket
-su - pocket
-sudo passwd root
-su -
-rsync --archive --chown=pocket:pocket ~/.ssh /home/pocket

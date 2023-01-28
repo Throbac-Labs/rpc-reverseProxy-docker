@@ -1,34 +1,84 @@
-version: '3.4'
-services:
-  geth-goerli:
-    container_name: geth-goerli
-    image: ethereum/client-go:v1.10.19
-    ports:
-      - "8552:8552"
-      - "30303:30303"
-      - "30303:30303/udp"
-    volumes:
-      - geth-goerli:/.goerli
-    networks:
-      - chains
-    command:
-      - --goerli
-      - --http
-      - --http.api=eth,net,debug
-      - --http.addr=0.0.0.0
-      - --http.port=8552
-      - --http.vhosts=*
-      - --http.corsdomain=*
-      - --syncmode=snap
-      - --datadir=.goerli
-      - --verbosity=3
-      - --metrics
-      - --metrics.addr=0.0.0.0
+version: "3.4"  
+services:  
+  traefik:  
+    image: traefik:latest
+    restart: unless.stopped
+    env_file: .env
+    command:  
+      - --log.level=DEBUG
+#      - --accesslog=true  
+#      - --accesslog.format=json  
+#      - --accesslog.fields.defaultmode=keep  
+#      - --accesslog.fields.headers.defaultmode=keep  
+#      - --certificatesResolvers.letsencrypt.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory  
+      - --providers.docker=true  
+      - --providers.docker.exposedbydefault=false  
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge=true  
+      - --certificatesresolvers.letsencrypt.acme.dnschallenge.provider=cloudflare  
+      - --certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL}  
+      - --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json  
+      - --entrypoints.web.address=:80 
+      - --entrypoints.web.http.redirections.entrypoint.to=websecure  
+      - --entrypoints.web.http.redirections.entrypoint.scheme=https  
+      - --entrypoints.websecure.address=:443 
+    ports:  
+      - 80:80/tcp  
+      - 443:443/tcp  
+    environment:  
+      - CLOUDFLARE_EMAIL=${CF_EMAIL}  
+      - CLOUDFLARE_DNS_API_TOKEN=${CF_API_TOKEN}  
+    volumes:  
+      - ~/.env:/config/.env
+      - /var/run/docker.sock:/var/run/docker.sock:ro  
+      - certs:/letsencrypt  
+      - /etc/localtime:/etc/localtime:ro   
+    depends_on:  
+      - cf-ddns  
+  cf-ddns:  
+    image: oznu/cloudflare-ddns:latest  
     restart: unless-stopped
+    env_file: .env
+    environment:  
+      - API_KEY=${CF_API_TOKEN}  
+      - ZONE=${DOMAIN}  
+      - SUBDOMAIN=${DDNS_SUBDOMAIN}  
+      - PROXIED=False  
+    volumes:  
+      - /etc/localtime:/etc/localtime:ro
+      - ~/.env:/config/.env
 
-volumes:
-    geth-goerli:
-
-networks:
-  chains:
-    driver: bridge
+  geth-goerli: 
+    container_name: geth-goerli 
+    image: ethereum/client-go:v1.10.19 
+    restart: unless-stopped
+    env_file: .env
+    ports: 
+      - "30303:30303" 
+      - "30303:30303/udp" 
+    volumes: 
+      - geth-goerli:/.goerli 
+      - ~/.env:/config/.env
+    command: 
+      - --goerli 
+      - --http 
+      - --http.api=eth,net,debug 
+      - --http.addr=0.0.0.0 
+      - --http.port=8552 
+      - --http.vhosts=* 
+      - --http.corsdomain=* 
+      - --syncmode=snap 
+      - --datadir=.goerli 
+      - --verbosity=3 
+      - --metrics 
+      - --metrics.addr=0.0.0.0 
+    labels:
+      - traefik.enable=true  
+      - traefik.http.routers.goerli.service=goerli
+      - traefik.http.routers.goerli.entrypoints=websecure  
+      - traefik.http.routers.goerli.rule=Host(`${DOMAIN}`)  
+      - traefik.http.routers.goerli.tls.certresolver=letsencrypt  
+      - traefik.http.services.goerli.loadbalancer.server.port=8552
+ #     - traefik.http.services.goerli.loadbalancer.server.scheme=https
+volumes: 
+  geth-goerli:  
+  certs:
